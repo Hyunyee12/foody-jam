@@ -9,25 +9,31 @@ public class GameManager : MonoBehaviour
     public TMP_Text timerText;
     public GameObject pausePanel;
     public GameObject gameOverPanel;
+    public GameObject gameClearPanel; // ★ 추가됨: 게임 클리어 시 띄울 성공 패널!
 
     [Header("--- Game Settings ---")]
     public float timeRemaining = 60f;
     public bool isGameActive = false;
 
+    [Header("--- Clear Settings ---")] // ★ 추가됨: 클리어 조건 설정
+    public int currentIngredients = 0; // 현재 모은 최종 재료 개수
+    public int maxIngredients = 5;     // 목표 재료 개수 (쌀국수 재료 총 5개)
+
     private bool isPaused = false;
 
     // --- LOGIC QUAY LẠI NƯỚC ĐI (UNDO) ---
-    // Cấu trúc để lưu dữ liệu một nước đi (ví dụ: điểm hoặc vị trí)
     private Stack<float> timeHistory = new Stack<float>();
-    // Nếu bạn có điểm hoặc danh sách vị trí đồ ăn, hãy tạo thêm Stack ở đây
 
     void Start()
     {
         Time.timeScale = 1f;
         isGameActive = true;
         isPaused = false;
+        currentIngredients = 0; // ★ 게임 시작 시 재료 개수 0으로 초기화
 
         if (pausePanel != null) pausePanel.SetActive(false);
+        if (gameOverPanel != null) gameOverPanel.SetActive(false);
+        if (gameClearPanel != null) gameClearPanel.SetActive(false); // ★ 성공 패널도 시작 시 숨김
     }
 
     void Update()
@@ -57,24 +63,19 @@ public class GameManager : MonoBehaviour
     }
 
     // --- 1. LƯU NƯỚC ĐI ---
-    // Bạn phải gọi hàm này ngay TRƯỚC khi người chơi thực hiện thao tác (như đổi chỗ đồ ăn)
     public void SaveStep()
     {
         timeHistory.Push(timeRemaining);
-        // Lưu thêm vị trí các món ăn vào đây nếu cần
         Debug.Log("Đã lưu lại trạng thái hiện tại.");
     }
 
     // --- 2. HÀM QUAY LẠI NƯỚC ĐI (UNDO/REDO THEO Ý BẠN) ---
-    // Gán hàm này vào nút bấm "Redo" trên UI của bạn
     public void RedoStep()
     {
         if (timeHistory.Count > 0)
         {
-            timeRemaining = timeHistory.Pop(); // Lấy lại thời gian lúc trước khi đi
+            timeRemaining = timeHistory.Pop(); 
             UpdateTimerUI();
-
-            // Ở đây bạn cần thêm code để đưa các món ăn về vị trí cũ
             Debug.Log("Đã quay lại nước đi trước!");
         }
         else
@@ -98,7 +99,7 @@ public class GameManager : MonoBehaviour
         if (pausePanel != null) pausePanel.SetActive(false);
     }
 
-    public void RestartScene() // Chơi lại từ đầu cả màn
+    public void RestartScene() 
     {
         Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
@@ -118,8 +119,46 @@ public class GameManager : MonoBehaviour
 
         if (gameOverPanel != null) 
         {
-            gameOverPanel.SetActive(true); // 숨겨뒀던 게임 종료 창 띄우기!
+            gameOverPanel.SetActive(true); 
         }
         Time.timeScale = 0f;
+    }
+
+    // --- 4. 게임 클리어 로직 (★ 새로 추가된 부분) ---
+    
+    // 최종 재료가 완성될 때마다 (IngredientReporter가) 이 함수를 부릅니다.
+    public void AddFinalIngredient()
+    {
+        if (!isGameActive) return; // 이미 게임이 끝났으면 무시
+
+        currentIngredients++;
+        Debug.Log("최종 재료 획득! 현재: " + currentIngredients + " / " + maxIngredients);
+
+        // 5개를 다 모았다면 클리어 처리!
+        if (currentIngredients >= maxIngredients)
+        {
+            GameClear();
+        }
+    }
+
+    private void GameClear()
+    {
+        // 1. 게임 상태를 끝남으로 변경 (유저가 더 이상 블록을 못 움직이게)
+        isGameActive = false;
+        
+        // 2. 시간은 정상 속도(1)로 유지 (Invoke가 시간의 영향을 받기 때문)
+        Time.timeScale = 1f; 
+
+        // 3. 콘솔창에 성공 메시지 띄우기
+        Debug.Log("🎉 쌀국수 재료 5개 완성! 2초 뒤 엔딩 씬으로 이동합니다.");
+
+        // ★ 4. "LoadEndingScene" 이라는 함수를 '2초(2f)' 뒤에 실행해라!
+        Invoke("LoadEndingScene", 2f); 
+    }
+
+    // ★ 5. 2초 뒤에 실제로 불려질 씬 이동 함수 만들기
+    private void LoadEndingScene()
+    {
+        SceneManager.LoadScene("ending UI"); 
     }
 }
