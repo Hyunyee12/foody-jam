@@ -143,8 +143,8 @@ TextureImporter:
       name: food_2
       rect:
         serializedVersion: 2
-        x: 645
-        y: 354
+        x: 135
+        y: 367
         width: 261
         height: 83
       alignment: 0
@@ -233,8 +233,8 @@ TextureImporter:
         serializedVersion: 2
         x: 63
         y: 0
-        width: 399
-        height: 474
+        width: 406
+        height: 339
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}

@@ -83,8 +83,13 @@ public class BlockMovement : MonoBehaviour
                 BlockData hitData = hit.GetComponent<BlockData>();
                 if (CanMerge(hitData))
                 {
-                    ExecuteMerge(hit.gameObject);
-                    return;
+                    // ★ 수정됨: 0.5f 기준이 너무 깐깐해서 안 합쳐지던 문제를 1.2f로 늘려 해결!
+                    float distance = Vector2.Distance(targetPosition, hit.transform.position);
+                    if (distance < 1.2f) 
+                    {
+                        ExecuteMerge(hit.gameObject);
+                        return;
+                    }
                 }
                 else
                 {
@@ -123,7 +128,6 @@ public class BlockMovement : MonoBehaviour
         currentAxis = DragAxis.None;
         if (spriteRenderer != null) spriteRenderer.sortingOrder = originalSortingOrder;
 
-        // ★ 게임 중(드래그 놨을 때)에는 무조건 프라이팬 안으로 들어가게 true로 설정
         Vector3 snapPosition = GetSnapPosition(transform.position, true);
 
         Collider2D[] upHits = Physics2D.OverlapBoxAll(snapPosition, myCollider.bounds.size * 0.5f, 0f);
@@ -136,8 +140,13 @@ public class BlockMovement : MonoBehaviour
                 BlockData hitData = hit.GetComponent<BlockData>();
                 if (CanMerge(hitData))
                 {
-                    ExecuteMerge(hit.gameObject);
-                    return;
+                    // ★ 수정됨: 마우스를 놨을 때도 1.2f 범위 안에 들어오면 합체!
+                    float distance = Vector2.Distance(snapPosition, hit.transform.position);
+                    if (distance < 1.2f)
+                    {
+                        ExecuteMerge(hit.gameObject);
+                        return;
+                    }
                 }
                 upHitObstacle = true;
                 break;
@@ -211,7 +220,6 @@ public class BlockMovement : MonoBehaviour
         }
     }
 
-    // ★ clampToBoard 옵션 추가! 유니티 반올림 오차 방지 로직 적용
     private Vector3 GetSnapPosition(Vector3 currentPos, bool clampToBoard)
     {
         float xIdx = Mathf.Floor((currentPos.x - gridOffset.x - snapOffset.x) / gridSize.x + 0.5f);
@@ -222,7 +230,6 @@ public class BlockMovement : MonoBehaviour
             yIdx * gridSize.y + gridOffset.y + snapOffset.y
         );
 
-        // 에디터에서 정렬할 땐 false라서 무시됨, 게임 중엔 true라서 프라이팬 밖으로 못 나감!
         if (clampToBoard && boardCollider != null && myCollider != null)
         {
             Bounds b = boardCollider.bounds;
@@ -245,7 +252,6 @@ public class BlockMovement : MonoBehaviour
     private void SnapInEditor()
     {
         ForceLoadComponents();
-        // ★ 에디터에서는 false를 줘서 블록이 어디 있든 그 자리에서 스냅만 하게 함!
         transform.position = GetSnapPosition(transform.position, false);
     }
 }
