@@ -8,6 +8,7 @@ public class GameManager : MonoBehaviour
     [Header("--- UI Settings ---")]
     public TMP_Text timerText;
     public GameObject pausePanel;
+    public GameObject gameOverPanel;
 
     [Header("--- Game Settings ---")]
     public float timeRemaining = 60f;
@@ -106,7 +107,7 @@ public class GameManager : MonoBehaviour
     public void BackToMenu()
     {
         Time.timeScale = 1f;
-        SceneManager.LoadScene("Menu & Stage");
+        SceneManager.LoadScene("start UI");
     }
 
     public void GameOver()
@@ -114,5 +115,11 @@ public class GameManager : MonoBehaviour
         isGameActive = false;
         timeRemaining = 0;
         Debug.Log("Game Over!");
+
+        if (gameOverPanel != null) 
+        {
+            gameOverPanel.SetActive(true); // 숨겨뒀던 게임 종료 창 띄우기!
+        }
+        Time.timeScale = 0f;
     }
 }
