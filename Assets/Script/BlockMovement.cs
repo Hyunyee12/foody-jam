@@ -3,6 +3,8 @@ using System.Collections;
 
 public class BlockMovement : MonoBehaviour
 {
+    public bool isMovable = true;
+    
     [Header("Grid & Board Settings")]
     public Vector2 gridSize = new Vector2(1f, 1f);
     public Vector2 gridOffset = new Vector2(0f, 0f);
@@ -39,6 +41,7 @@ public class BlockMovement : MonoBehaviour
 
     void OnMouseDown()
     {
+        if (!isMovable) return;
         ForceLoadComponents();
 
         if (isDragging || myCollider == null) return;
@@ -85,7 +88,7 @@ public class BlockMovement : MonoBehaviour
                 {
                     // ★ 수정됨: 0.5f 기준이 너무 깐깐해서 안 합쳐지던 문제를 1.2f로 늘려 해결!
                     float distance = Vector2.Distance(targetPosition, hit.transform.position);
-                    if (distance < 1.2f) 
+                    if (distance < 1.2f)
                     {
                         ExecuteMerge(hit.gameObject);
                         return;
@@ -199,6 +202,7 @@ public class BlockMovement : MonoBehaviour
         {
             GameObject newBlock = Instantiate(material.mergedPrefab, spawnPos, Quaternion.identity);
             newBlock.transform.localScale = biggerSize;
+
         }
 
         Destroy(hitBlock);
@@ -235,10 +239,10 @@ public class BlockMovement : MonoBehaviour
             Bounds b = boardCollider.bounds;
             float hX = myCollider.bounds.extents.x;
             float hY = myCollider.bounds.extents.y;
-            
+
             snapPos.x = Mathf.Clamp(snapPos.x, b.min.x + hX, b.max.x - hX);
             snapPos.y = Mathf.Clamp(snapPos.y, b.min.y + hY, b.max.y - hY);
-            
+
             xIdx = Mathf.Floor((snapPos.x - gridOffset.x - snapOffset.x) / gridSize.x + 0.5f);
             yIdx = Mathf.Floor((snapPos.y - gridOffset.y - snapOffset.y) / gridSize.y + 0.5f);
             snapPos.x = xIdx * gridSize.x + gridOffset.x + snapOffset.x;
