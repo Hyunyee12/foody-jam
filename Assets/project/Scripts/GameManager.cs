@@ -9,15 +9,21 @@ public class GameManager : MonoBehaviour
     public TMP_Text timerText;
     public GameObject pausePanel;
     public GameObject gameOverPanel;
-    public GameObject gameClearPanel; // ★ 추가됨: 게임 클리어 시 띄울 성공 패널!
+    // (gameClearPanel은 씬 이동을 하므로 지웠습니다. 필요하다면 다시 넣으셔도 됩니다.)
 
     [Header("--- Game Settings ---")]
     public float timeRemaining = 60f;
     public bool isGameActive = false;
+    private float maxTime; // ★ 추가됨: 처음 설정한 전체 시간을 기억할 변수
 
-    [Header("--- Clear Settings ---")] // ★ 추가됨: 클리어 조건 설정
+    [Header("--- Clear Settings ---")]
     public int currentIngredients = 0; // 현재 모은 최종 재료 개수
     public int maxIngredients = 5;     // 목표 재료 개수 (쌀국수 재료 총 5개)
+
+    [Header("--- Level Complete Scenes ---")] // ★ 추가됨: 인스펙터에서 적어줄 씬 이름들
+    public string sceneName1Star = "1star UI";
+    public string sceneName2Star = "2star UI";
+    public string sceneName3Star = "3star UI";
 
     private bool isPaused = false;
 
@@ -29,11 +35,14 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 1f;
         isGameActive = true;
         isPaused = false;
-        currentIngredients = 0; // ★ 게임 시작 시 재료 개수 0으로 초기화
+        currentIngredients = 0; 
+        
+        // ★ 게임이 시작될 때 설정된 시간을 최대 시간(maxTime)으로 저장해둡니다.
+        // (인스펙터에서 45초로 바꾸든 60초로 바꾸든 알아서 똑똑하게 계산됩니다!)
+        maxTime = timeRemaining; 
 
         if (pausePanel != null) pausePanel.SetActive(false);
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
-        if (gameClearPanel != null) gameClearPanel.SetActive(false); // ★ 성공 패널도 시작 시 숨김
     }
 
     void Update()
@@ -124,12 +133,11 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 0f;
     }
 
-    // --- 4. 게임 클리어 로직 (★ 새로 추가된 부분) ---
+    // --- 4. 게임 클리어 로직 ---
     
-    // 최종 재료가 완성될 때마다 (IngredientReporter가) 이 함수를 부릅니다.
     public void AddFinalIngredient()
     {
-        if (!isGameActive) return; // 이미 게임이 끝났으면 무시
+        if (!isGameActive) return; 
 
         currentIngredients++;
         Debug.Log("최종 재료 획득! 현재: " + currentIngredients + " / " + maxIngredients);
@@ -143,22 +151,35 @@ public class GameManager : MonoBehaviour
 
     private void GameClear()
     {
-        // 1. 게임 상태를 끝남으로 변경 (유저가 더 이상 블록을 못 움직이게)
         isGameActive = false;
-        
-        // 2. 시간은 정상 속도(1)로 유지 (Invoke가 시간의 영향을 받기 때문)
         Time.timeScale = 1f; 
 
-        // 3. 콘솔창에 성공 메시지 띄우기
-        Debug.Log("🎉 쌀국수 재료 5개 완성! 2초 뒤 엔딩 씬으로 이동합니다.");
+        Debug.Log("🎉 쌀국수 재료 5개 완성! 2초 뒤 결과 씬으로 이동합니다.");
 
-        // ★ 4. "LoadEndingScene" 이라는 함수를 '2초(2f)' 뒤에 실행해라!
-        Invoke("LoadEndingScene", 2f); 
+        // ★ 2초 뒤에 씬을 계산해서 이동시키는 함수를 부릅니다.
+        Invoke("LoadStarScene", 2f); 
     }
 
-    // ★ 5. 2초 뒤에 실제로 불려질 씬 이동 함수 만들기
-    private void LoadEndingScene()
+    // ★ 5. 걸린 시간을 계산해서 별 씬으로 넘어가는 함수
+    private void LoadStarScene()
     {
-        SceneManager.LoadScene("ending UI"); 
+        // 걸린 시간 계산 = (처음에 주어진 시간 - 현재 남은 시간)
+        float timeTaken = maxTime - timeRemaining; 
+
+        if (timeTaken <= 10f)
+        {
+            Debug.Log(timeTaken + "초 걸림! 별 3개 획득!");
+            SceneManager.LoadScene(sceneName3Star);
+        }
+        else if (timeTaken <= 15f)
+        {
+            Debug.Log(timeTaken + "초 걸림! 별 2개 획득!");
+            SceneManager.LoadScene(sceneName2Star);
+        }
+        else
+        {
+            Debug.Log(timeTaken + "초 걸림! 별 1개 획득!");
+            SceneManager.LoadScene(sceneName1Star);
+        }
     }
 }
