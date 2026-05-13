@@ -8,8 +8,8 @@ public class BlockMovement : MonoBehaviour
     [Header("Grid & Board Settings")]
     public Vector2 gridSize = new Vector2(1f, 1f);
     public Vector2 gridOffset = new Vector2(0f, 0f);
-    public Vector2 snapOffset = new Vector2(0f, 0f); // 블록 크기에 맞춘 미세 조정 값
-    public float returnSpeed = 15f;
+    public Vector2 snapOffset = new Vector2(0f, 0f); 
+    public float returnSpeed = 10f; // 튕기는 속도 부드럽게 조정 (추천: 8~12)
     public BoxCollider2D boardCollider;
 
     private Vector3 originalPosition;
@@ -86,7 +86,6 @@ public class BlockMovement : MonoBehaviour
                 BlockData hitData = hit.GetComponent<BlockData>();
                 if (CanMerge(hitData))
                 {
-                    // ★ 수정됨: 0.5f 기준이 너무 깐깐해서 안 합쳐지던 문제를 1.2f로 늘려 해결!
                     float distance = Vector2.Distance(targetPosition, hit.transform.position);
                     if (distance < 1.2f)
                     {
@@ -106,7 +105,10 @@ public class BlockMovement : MonoBehaviour
         {
             isDragging = false;
             if (spriteRenderer != null) spriteRenderer.sortingOrder = originalSortingOrder;
-            StartCoroutine(ReturnToOriginalPosition());
+            
+            // ★ 변경점: 튕겼을 때 원래 자리 대신 '가장 가까운 빈자리'로 스르륵 이동!
+            Vector3 bestPos = GetNearestEmptyGrid(transform.position);
+            StartCoroutine(SlideToPosition(bestPos));
             return;
         }
 
@@ -143,7 +145,6 @@ public class BlockMovement : MonoBehaviour
                 BlockData hitData = hit.GetComponent<BlockData>();
                 if (CanMerge(hitData))
                 {
-                    // ★ 수정됨: 마우스를 놨을 때도 1.2f 범위 안에 들어오면 합체!
                     float distance = Vector2.Distance(snapPosition, hit.transform.position);
                     if (distance < 1.2f)
                     {
@@ -156,22 +157,84 @@ public class BlockMovement : MonoBehaviour
             }
         }
 
-        if (upHitObstacle) StartCoroutine(ReturnToOriginalPosition());
-        else transform.position = snapPosition;
+        if (upHitObstacle) 
+        {
+            // ★ 변경점: 놨을 때 겹치면 원래 자리 대신 '가장 가까운 빈자리'로 이동!
+            Vector3 bestPos = GetNearestEmptyGrid(transform.position);
+            StartCoroutine(SlideToPosition(bestPos));
+        }
+        else 
+        {
+            transform.position = snapPosition;
+        }
     }
 
-    private IEnumerator ReturnToOriginalPosition()
+    // --- ⬇️ 새롭게 추가 및 변경된 함수들 ⬇️ ---
+
+    // ★ 부드럽게 미끄러지듯 이동하는 함수 (SmoothStep 적용)
+    private IEnumerator SlideToPosition(Vector3 targetPos)
     {
         float timer = 0f;
         Vector3 startPos = transform.position;
         while (timer < 1f)
         {
             timer += Time.deltaTime * returnSpeed;
-            transform.position = Vector3.Lerp(startPos, originalPosition, timer);
+            float smoothTimer = Mathf.SmoothStep(0f, 1f, timer); // 고급스러운 감속 효과
+            transform.position = Vector3.Lerp(startPos, targetPos, smoothTimer);
             yield return null;
         }
-        transform.position = originalPosition;
+        transform.position = targetPos;
     }
+
+    // ★ 내 주변 8방향을 스캔해서 가장 가까운 '빈칸'을 찾아내는 레이더 함수
+    private Vector3 GetNearestEmptyGrid(Vector3 currentPos)
+    {
+        Vector3 centerSnap = GetSnapPosition(currentPos, true);
+
+        // 1. 떨어뜨린 그 자리가 마침 비어있다면 거기로!
+        if (!IsGridOccupied(centerSnap)) return centerSnap;
+
+        // 2. 꽉 찼다면 주변 상하좌우 + 대각선 8칸 탐색
+        Vector3[] searchOffsets = new Vector3[]
+        {
+            new Vector3(gridSize.x, 0, 0),
+            new Vector3(-gridSize.x, 0, 0),
+            new Vector3(0, gridSize.y, 0),
+            new Vector3(0, -gridSize.y, 0),
+            new Vector3(gridSize.x, gridSize.y, 0),
+            new Vector3(-gridSize.x, gridSize.y, 0),
+            new Vector3(gridSize.x, -gridSize.y, 0),
+            new Vector3(-gridSize.x, -gridSize.y, 0)
+        };
+
+        foreach (Vector3 offset in searchOffsets)
+        {
+            Vector3 neighborPos = GetSnapPosition(centerSnap + offset, true);
+            if (!IsGridOccupied(neighborPos))
+            {
+                return neighborPos; // 가장 먼저 찾은 빈칸 반환
+            }
+        }
+
+        // 3. 주변 8칸마저 꽉 찼다면 어쩔 수 없이 맨 처음 시작 자리로 (최후의 수단)
+        return originalPosition; 
+    }
+
+    // ★ 해당 그리드에 다른 블록이 있는지 확인하는 함수
+    private bool IsGridOccupied(Vector3 checkPos)
+    {
+        Collider2D[] hits = Physics2D.OverlapBoxAll(checkPos, myCollider.bounds.size * 0.5f, 0f);
+        foreach (Collider2D hit in hits)
+        {
+            if (hit.gameObject != this.gameObject && (boardCollider == null || hit.gameObject != boardCollider.gameObject))
+            {
+                return true; // 무언가 있다! (꽉 참)
+            }
+        }
+        return false; // 비어있음!
+    }
+
+    // --- (이하 기존 함수들 유지) ---
 
     private bool CanMerge(BlockData targetData)
     {
@@ -202,7 +265,6 @@ public class BlockMovement : MonoBehaviour
         {
             GameObject newBlock = Instantiate(material.mergedPrefab, spawnPos, Quaternion.identity);
             newBlock.transform.localScale = biggerSize;
-
         }
 
         Destroy(hitBlock);
