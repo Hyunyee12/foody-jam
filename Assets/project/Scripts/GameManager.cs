@@ -2,6 +2,7 @@
 using UnityEngine.SceneManagement;
 using TMPro;
 using System.Collections.Generic; // Bắt buộc để dùng List/Stack
+using System.Collections; // ★ 코루틴(애니메이션)을 위해 꼭 추가해야 합니다!
 
 public class GameManager : MonoBehaviour
 {
@@ -9,25 +10,26 @@ public class GameManager : MonoBehaviour
     public TMP_Text timerText;
     public GameObject pausePanel;
     public GameObject gameOverPanel;
-    // (gameClearPanel은 씬 이동을 하므로 지웠습니다. 필요하다면 다시 넣으셔도 됩니다.)
 
     [Header("--- Game Settings ---")]
     public float timeRemaining = 60f;
     public bool isGameActive = false;
-    private float maxTime; // ★ 추가됨: 처음 설정한 전체 시간을 기억할 변수
+    private float maxTime; 
 
     [Header("--- Clear Settings ---")]
-    public int currentIngredients = 0; // 현재 모은 최종 재료 개수
-    public int maxIngredients = 5;     // 목표 재료 개수 (쌀국수 재료 총 5개)
+    public int currentIngredients = 0; 
+    public int maxIngredients = 5;     
 
-    [Header("--- Level Complete Scenes ---")] // ★ 추가됨: 인스펙터에서 적어줄 씬 이름들
+    // ★ 추가됨: 빨려 들어갈 쌀국수 그릇의 위치!
+    [Header("--- Ending Animation ---")]
+    public Transform bowlTransform; 
+
+    [Header("--- Level Complete Scenes ---")] 
     public string sceneName1Star = "1star UI";
     public string sceneName2Star = "2star UI";
     public string sceneName3Star = "3star UI";
 
     private bool isPaused = false;
-
-    // --- LOGIC QUAY LẠI NƯỚC ĐI (UNDO) ---
     private Stack<float> timeHistory = new Stack<float>();
 
     void Start()
@@ -36,9 +38,6 @@ public class GameManager : MonoBehaviour
         isGameActive = true;
         isPaused = false;
         currentIngredients = 0; 
-        
-        // ★ 게임이 시작될 때 설정된 시간을 최대 시간(maxTime)으로 저장해둡니다.
-        // (인스펙터에서 45초로 바꾸든 60초로 바꾸든 알아서 똑똑하게 계산됩니다!)
         maxTime = timeRemaining; 
 
         if (pausePanel != null) pausePanel.SetActive(false);
@@ -71,14 +70,12 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // --- 1. LƯU NƯỚC ĐI ---
     public void SaveStep()
     {
         timeHistory.Push(timeRemaining);
         Debug.Log("Đã lưu lại trạng thái hiện tại.");
     }
 
-    // --- 2. HÀM QUAY LẠI NƯỚC ĐI (UNDO/REDO THEO Ý BẠN) ---
     public void RedoStep()
     {
         if (timeHistory.Count > 0)
@@ -93,7 +90,6 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // --- 3. CÁC HÀM CƠ BẢN ---
     public void PauseGame()
     {
         isPaused = true;
@@ -132,8 +128,6 @@ public class GameManager : MonoBehaviour
         }
         Time.timeScale = 0f;
     }
-
-    // --- 4. 게임 클리어 로직 ---
     
     public void AddFinalIngredient()
     {
@@ -154,17 +148,81 @@ public class GameManager : MonoBehaviour
         isGameActive = false;
         Time.timeScale = 1f; 
 
-        Debug.Log("🎉 쌀국수 재료 5개 완성! 2초 뒤 결과 씬으로 이동합니다.");
+        Debug.Log("🎉 쌀국수 재료 5개 완성! 그릇으로 날아갑니다!");
 
-        // ★ 2초 뒤에 씬을 계산해서 이동시키는 함수를 부릅니다.
-        Invoke("LoadStarScene", 2f); 
+        // ★ 기존 Invoke를 지우고, 멋진 애니메이션 코루틴을 실행합니다!
+        StartCoroutine(SuckIntoBowlAnimation());
     }
 
-    // ★ 5. 걸린 시간을 계산해서 별 씬으로 넘어가는 함수
+    // ★ 새롭게 추가된 마법의 애니메이션 함수
+    // ★ 새롭게 수정된 마법의 애니메이션 함수 (원본은 놔두고 복제본만 날려보내기!)
+    private IEnumerator SuckIntoBowlAnimation()
+    {
+        // 1. 화면에 있는 'FinalBlock' 태그를 가진 모든 블록을 찾습니다. (양옆 원본들도 포함됨)
+        GameObject[] allFinalBlocks = GameObject.FindGameObjectsWithTag("FinalBlock");
+        
+        // ★ 진짜 퍼즐판 위에 있는 블록들만 담을 새로운 바구니(리스트)를 만듭니다.
+        List<GameObject> boardBlocks = new List<GameObject>();
+
+        // 2. 찾은 블록들의 이름을 하나씩 검사합니다.
+        for (int i = 0; i < allFinalBlocks.Length; i++)
+        {
+            // 이름에 "(Clone)"이 들어있다면? -> 퍼즐판에서 합쳐져서 새로 태어난 진짜 블록!
+            if (allFinalBlocks[i].name.Contains("(Clone)"))
+            {
+                boardBlocks.Add(allFinalBlocks[i]); // 바구니에 담습니다.
+            }
+        }
+
+        // 위치와 크기를 기억해둘 배열 (진짜 블록 개수만큼만 만듦)
+        Vector3[] startPositions = new Vector3[boardBlocks.Count];
+        Vector3[] startScales = new Vector3[boardBlocks.Count];
+
+        for (int i = 0; i < boardBlocks.Count; i++)
+        {
+            startPositions[i] = boardBlocks[i].transform.position;
+            startScales[i] = boardBlocks[i].transform.localScale;
+            
+            // 날아갈 때 다른 블록이랑 안 부딪히게 충돌체를 꺼줍니다.
+            if(boardBlocks[i].GetComponent<Collider2D>() != null)
+                boardBlocks[i].GetComponent<Collider2D>().enabled = false;
+        }
+
+        float timer = 0f;
+        float animationDuration = 1.5f; // 날아가는 시간 (1.5초)
+
+        // 3. 1.5초 동안 '진짜 블록'들만 서서히 그릇으로 이동 + 축소 + 회전시킵니다.
+        while (timer < animationDuration)
+        {
+            timer += Time.deltaTime;
+            float percent = timer / animationDuration;
+            float curve = Mathf.SmoothStep(0f, 1f, percent); // 부드러운 감속 효과
+
+            for (int i = 0; i < boardBlocks.Count; i++)
+            {
+                if (boardBlocks[i] != null && bowlTransform != null)
+                {
+                    boardBlocks[i].transform.position = Vector3.Lerp(startPositions[i], bowlTransform.position, curve);
+                    boardBlocks[i].transform.localScale = Vector3.Lerp(startScales[i], Vector3.zero, curve);
+                    boardBlocks[i].transform.Rotate(0, 0, 1000f * Time.deltaTime);
+                }
+            }
+            yield return null; // 다음 프레임까지 대기
+        }
+
+        // 4. 애니메이션이 끝나면 별 화면으로 넘어갑니다.
+        LoadStarScene();
+    }
+
+    // ★ 걸린 시간을 계산해서 별 씬으로 넘어가는 함수
     private void LoadStarScene()
     {
-        // 걸린 시간 계산 = (처음에 주어진 시간 - 현재 남은 시간)
         float timeTaken = maxTime - timeRemaining; 
+
+        // ★ 결과 창으로 넘어가기 직전에 현재 씬의 이름을 "LastPlayedStage"라는 메모장에 적어둡니다!
+        string currentSceneName = SceneManager.GetActiveScene().name;
+        PlayerPrefs.SetString("LastPlayedStage", currentSceneName);
+        PlayerPrefs.Save();
 
         if (timeTaken <= 10f)
         {

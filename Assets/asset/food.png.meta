@@ -165,10 +165,10 @@ TextureImporter:
       name: food_3
       rect:
         serializedVersion: 2
-        x: 1159
-        y: 369
-        width: 135
-        height: 66
+        x: 636
+        y: 351
+        width: 279
+        height: 86
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
